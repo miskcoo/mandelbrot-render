@@ -4,6 +4,7 @@
 #include <mpfr.h>
 #include <stdint.h>
 #include <functional>
+#include "color.h"
 
 #define MPFR_NULL ((mpfr_ptr)0)
 
@@ -33,10 +34,10 @@ namespace mandelbrot
 
 	void render(
 		render_t render_info, 
+		color_picker_t color_picker, 
 		render_callback_t = nullptr, 
 		render_control_t  = nullptr);
 
-	void color_gray(int size, uint32_t *dest, int *src);
 }
 
 #endif // __MANDELBROT_H

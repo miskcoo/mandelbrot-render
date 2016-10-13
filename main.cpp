@@ -2,6 +2,7 @@
 #include <cairo.h>
 #include <gtk/gtk.h>
 #include "mandelbrot.h"
+#include "color.h"
 
 using namespace mandelbrot;
 
@@ -36,7 +37,7 @@ void update_image(mouse_state_t ms)
 	int x = (ms.x + ms.px - size) / 2;
 	int y = (ms.y + ms.py - size) / 2;
 
-	ri.prec += std::log2(1.0 * IMG_SIZE / size + 1.0);
+	ri.prec += std::log2(1.0 * IMG_SIZE / size + 0.01);
 	mpfr_prec_t prec = ri.prec * 2;
 
 	// initialize temporary variable
@@ -64,8 +65,9 @@ void update_image(mouse_state_t ms)
 	// render image
 	auto calc_procdure = [] (render_t ri, int id, int thread_num) {
 		render(ri, 
+		color_scale_gray, 
 		[=](int row) {
-			color_gray(IMG_SIZE, G[row], T[row]);
+			std::copy(T[row], T[row] + IMG_SIZE, G[row]);
 			expose_required = true;
 		},
 		[=](int row) -> bool {

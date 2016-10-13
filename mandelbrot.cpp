@@ -1,6 +1,5 @@
 #include "mandelbrot.h"
 #include "color.h"
-#include <bits/stdc++.h>
 
 namespace mandelbrot
 {
@@ -16,6 +15,7 @@ namespace mandelbrot
 
 	void render(
 		render_t          ri,
+		color_picker_t    color_picker,
 		render_callback_t callback,
 		render_control_t  control)
 	{
@@ -71,7 +71,7 @@ namespace mandelbrot
 						break;
 				}
 
-				ri.buffer[ i * ri.width + j ] = iter;
+				ri.buffer[ i * ri.width + j ] = color_picker(iter, ri.max_iter, Re2, Im2, T);
 
 				// calculate next parameter c
 				mpfr_add(c_real, c_real, ri.step, MPFR_RNDN);
@@ -84,14 +84,5 @@ namespace mandelbrot
 		}
 
 		mpfr_clears(Re, Im, Re2, Im2, T, c_imag, c_real, MPFR_NULL);
-	}
-
-	void color_gray(int size, uint32_t *dest, int *src)
-	{
-		for(int i = 0; i != size; ++i)
-		{
-			int c = 256 - src[i];
-			dest[i] = get_rgb(c, c, c);
-		}
 	}
 }
