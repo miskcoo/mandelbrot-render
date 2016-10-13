@@ -1,9 +1,11 @@
 #ifndef __MANDELBROT_H
 #define __MANDELBROT_H
 
-#include <gmp.h>
+#include <mpfr.h>
 #include <stdint.h>
 #include <functional>
+
+#define MPFR_NULL ((mpfr_ptr)0)
 
 namespace mandelbrot
 {
@@ -18,10 +20,12 @@ namespace mandelbrot
 		int *buffer;
 		// maximum iteration depth
 		int max_iter;
+		// precision of floating-point variables
+		double prec;
 		// coordinate of left-top point
-		mpf_t x0, y0;
+		mpfr_t x0, y0;
 		// distance between two adjacent point
-		mpf_t step;
+		mpfr_t step;
 
 		void init();
 		void clear();

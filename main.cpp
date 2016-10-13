@@ -19,6 +19,13 @@ struct mouse_state_t
 	int x, y, px, py;
 } ms;
 
+void mpfr_extend_prec(mpfr_t rop, mpfr_t tmp, mpfr_prec_t prec)
+{
+	mpfr_set(tmp, rop, MPFR_RNDN);
+	mpfr_set_prec(rop, prec);
+	mpfr_set(rop, tmp, MPFR_RNDN);
+}
+
 void update_image(mouse_state_t ms)
 {
 	if(ms.x < ms.px) std::swap(ms.x, ms.px);
@@ -29,22 +36,30 @@ void update_image(mouse_state_t ms)
 	int x = (ms.x + ms.px - size) / 2;
 	int y = (ms.y + ms.py - size) / 2;
 
+	ri.prec += std::log2(1.0 * IMG_SIZE / size + 1.0);
+	mpfr_prec_t prec = ri.prec * 2;
+
 	// initialize temporary variable
-	mpf_t tmp;
-	mpf_init   (tmp);
+	mpfr_t tmp;
+	mpfr_init2  (tmp, prec);
+
+	// reset the precision 
+	mpfr_extend_prec(ri.x0,   tmp, prec);
+	mpfr_extend_prec(ri.y0,   tmp, prec);
+	mpfr_extend_prec(ri.step, tmp, prec);
 
 	// update left-top point
-	mpf_mul_ui (tmp, ri.step, x);
-	mpf_add    (ri.x0, ri.x0, tmp);
+	mpfr_mul_ui (tmp, ri.step, x,   MPFR_RNDN);
+	mpfr_add    (ri.x0, ri.x0, tmp, MPFR_RNDN);
 
-	mpf_mul_ui (tmp, ri.step, y);
-	mpf_add    (ri.y0, ri.y0, tmp);
+	mpfr_mul_ui (tmp, ri.step, y,   MPFR_RNDN);
+	mpfr_add    (ri.y0, ri.y0, tmp, MPFR_RNDN);
 
 	// update step
-	mpf_set_d  (tmp, 1.0 * size / IMG_SIZE);
-	mpf_mul    (ri.step, ri.step, tmp);
+	mpfr_set_d  (tmp, 1.0 * size / IMG_SIZE, MPFR_RNDN);
+	mpfr_mul    (ri.step, ri.step, tmp,      MPFR_RNDN);
 
-	mpf_clear  (tmp);
+	mpfr_clear  (tmp);
 
 	// render image
 	auto calc_procdure = [] (render_t ri, int id, int thread_num) {
@@ -130,6 +145,10 @@ void mouse_hit_event(
 		ms.pressed = false;
 		update_image(ms);
 		gtk_widget_queue_draw(widget);
+
+		char title[1024];
+		std::sprintf(title, "Mandelbrot Set ( prec = %.5lf )", ri.prec);
+		gtk_window_set_title(GTK_WINDOW(window), title);
 	}
 }
 
@@ -157,16 +176,17 @@ gboolean expose_checker(gpointer)
 void init_image()
 {
 	// initialize image
-	ri.width = ri.height = IMG_SIZE;
-	ri.buffer = (int*)T;
-	ri.max_iter = MAX_ITER;
-	mpf_init_set_d(ri.x0, -2.0);
-	mpf_init_set_d(ri.y0, -2.0);
-	mpf_init_set_d(ri.step, 4.0 / IMG_SIZE);
+	ri.width     = ri.height = IMG_SIZE;
+	ri.buffer    = (int*)T;
+	ri.max_iter  = MAX_ITER;
+	ri.prec      = 10;
+	mpfr_init_set_d(ri.x0,   -2.0,           MPFR_RNDN);
+	mpfr_init_set_d(ri.y0,   -2.0,           MPFR_RNDN);
+	mpfr_init_set_d(ri.step, 4.0 / IMG_SIZE, MPFR_RNDN);
 
 	mouse_state_t ms0;
 	ms0.px = ms0.py = 0;
-	ms0.x = ms0.y = IMG_SIZE;
+	ms0.x  = ms0.y  = IMG_SIZE;
 	update_image(ms0);
 }
 
@@ -185,7 +205,6 @@ int main(int argc, char *argv[])
 	gtk_container_add(GTK_CONTAINER(window), draw_area);
 	g_signal_connect(G_OBJECT(draw_area), "expose-event",
 			G_CALLBACK(expose_event), NULL);
-
 
 	// add mouse event
 	gtk_widget_add_events(window, 
