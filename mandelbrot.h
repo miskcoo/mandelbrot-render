@@ -19,6 +19,9 @@ namespace mandelbrot
 		// linearized height * width matrix
 		// its value is the iteration depth
 		int *buffer;
+		// linearized height * width matrix
+		// its value is the (smooth) iteration depth
+		double *smooth;
 		// maximum iteration depth
 		int max_iter;
 		// precision of floating-point variables
@@ -32,9 +35,8 @@ namespace mandelbrot
 		void clear();
 	};
 
-	void render(
+	int render(
 		render_t render_info, 
-		color_picker_t color_picker, 
 		render_callback_t = nullptr, 
 		render_control_t  = nullptr);
 

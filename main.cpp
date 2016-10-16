@@ -7,12 +7,15 @@
 using namespace mandelbrot;
 
 const int FLUSH_TIMEOUT = 50;
-const int IMG_SIZE = 600, MAX_ITER = 255;
+const int IMG_SIZE = 600, MAX_ITER = 2000;
 GtkWidget *window, *draw_area;
+int THREAD_NUM = 4;
 int T[IMG_SIZE][IMG_SIZE];
+double S[IMG_SIZE][IMG_SIZE];
 uint32_t G[IMG_SIZE][IMG_SIZE];
 render_t ri;
 std::atomic<bool> expose_required;
+std::atomic<int> working_thread, current_iter_depth;
 
 struct mouse_state_t
 {
@@ -27,6 +30,13 @@ void mpfr_extend_prec(mpfr_t rop, mpfr_t tmp, mpfr_prec_t prec)
 	mpfr_set(rop, tmp, MPFR_RNDN);
 }
 
+void update_window_title()
+{
+	static char title[1024];
+	sprintf(title, "Mandelbrot Set ( prec = %.5lf, iter = %d )", ri.prec, ri.max_iter);
+	gtk_window_set_title(GTK_WINDOW(window), title);
+}
+
 void update_image(mouse_state_t ms)
 {
 	if(ms.x < ms.px) std::swap(ms.x, ms.px);
@@ -37,7 +47,7 @@ void update_image(mouse_state_t ms)
 	int x = (ms.x + ms.px - size) / 2;
 	int y = (ms.y + ms.py - size) / 2;
 
-	ri.prec += std::log2(1.0 * IMG_SIZE / size + 0.01);
+	ri.prec += log2(1.0 * IMG_SIZE / size + 0.01);
 	mpfr_prec_t prec = ri.prec * 2;
 
 	// initialize temporary variable
@@ -64,19 +74,23 @@ void update_image(mouse_state_t ms)
 
 	// render image
 	auto calc_procdure = [] (render_t ri, int id, int thread_num) {
-		render(ri, 
-		color_scale_gray, 
+		int cur_iter = render(ri, 
 		[=](int row) {
-			std::copy(T[row], T[row] + IMG_SIZE, G[row]);
+			for(int i = 0; i != ri.width; ++i)
+				G[row][i] = color_fixed_gray(0, ri.max_iter, S[row][i]);
 			expose_required = true;
 		},
 		[=](int row) -> bool {
 			return row % thread_num == id;
 		} );
+
+		if(--working_thread == 0 && cur_iter > ri.max_iter * 0.7)
+			ri.max_iter = cur_iter * 2;
 	};
 
-	for(int i = 0; i != 3; ++i)
-		std::thread(calc_procdure, ri, i, 3).detach();
+	working_thread = THREAD_NUM;
+	for(int i = 0; i != THREAD_NUM; ++i)
+		std::thread(calc_procdure, ri, i, THREAD_NUM).detach();
 }
 
 gboolean expose_event(
@@ -138,19 +152,16 @@ void mouse_hit_event(
 	GdkEventButton *event, 
 	gpointer data)
 {
-	if(event->type == GDK_BUTTON_PRESS)
+	if(event->type == GDK_BUTTON_PRESS && !working_thread)
 	{
 		ms.pressed = true;
 		ms.x = ms.px = event->x;
 		ms.y = ms.py = event->y;
-	} else if(event->type == GDK_BUTTON_RELEASE) {
+	} else if(event->type == GDK_BUTTON_RELEASE && ms.pressed) {
 		ms.pressed = false;
 		update_image(ms);
 		gtk_widget_queue_draw(widget);
-
-		char title[1024];
-		std::sprintf(title, "Mandelbrot Set ( prec = %.5lf )", ri.prec);
-		gtk_window_set_title(GTK_WINDOW(window), title);
+		update_window_title();
 	}
 }
 
@@ -180,6 +191,7 @@ void init_image()
 	// initialize image
 	ri.width     = ri.height = IMG_SIZE;
 	ri.buffer    = (int*)T;
+	ri.smooth    = (double*)S;
 	ri.max_iter  = MAX_ITER;
 	ri.prec      = 10;
 	mpfr_init_set_d(ri.x0,   -2.0,           MPFR_RNDN);
@@ -189,12 +201,26 @@ void init_image()
 	mouse_state_t ms0;
 	ms0.px = ms0.py = 0;
 	ms0.x  = ms0.y  = IMG_SIZE;
+	update_window_title();
 	update_image(ms0);
 }
 
+void parse_arguments(int argc, char *argv[])
+{
+	for(int i = 1; i != argc; ++i)
+	{
+		int len = std::strlen(argv[i]);
+		if(len >= 3 && argv[i][0] == '-' && argv[i][1] == 'j')
+		{
+			int t = std::atoi(argv[i] + 2);
+			if(t >= 1) THREAD_NUM = t;
+		}
+	}
+}
 
 int main(int argc, char *argv[])
 {
+	parse_arguments(argc, argv);
 	gtk_init(&argc, &argv);
 
 	// create window
@@ -222,7 +248,6 @@ int main(int argc, char *argv[])
 			G_CALLBACK(mouse_motion_event), NULL);
 
 	// set window info
-	gtk_window_set_title(GTK_WINDOW(window), "Mandelbrot Set Render");
 	gtk_window_set_default_size(GTK_WINDOW(window), IMG_SIZE, IMG_SIZE);
 
 	// set flush timer

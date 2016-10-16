@@ -7,7 +7,7 @@
 
 namespace mandelbrot
 {
-	typedef std::function<uint32_t(int, int, mpfr_t, mpfr_t, mpfr_t)> color_picker_t;
+	typedef std::function<uint32_t(int, int, double)> color_picker_t;
 
 	/* 
 	 * Convert RGB to integer representation
@@ -26,8 +26,9 @@ namespace mandelbrot
 	 */
 	uint32_t hsv_to_rgb(int h, double s, double v);
 
-	uint32_t color_scale_gray(int, int, mpfr_t, mpfr_t, mpfr_t);
-	uint32_t color_hsv1(int, int, mpfr_t, mpfr_t, mpfr_t);
+	uint32_t color_scale_gray(int, int, double);
+	uint32_t color_fixed_gray(int, int, double);
+	uint32_t color_hsv1(int, int, double);
 }
 
 #endif // __COLOR_H

@@ -1,5 +1,6 @@
 #include "mandelbrot.h"
 #include "color.h"
+#include <cmath>
 
 namespace mandelbrot
 {
@@ -13,9 +14,8 @@ namespace mandelbrot
 		mpfr_clears(x0, y0, step, MPFR_NULL);
 	}
 
-	void render(
+	int render(
 		render_t          ri,
-		color_picker_t    color_picker,
 		render_callback_t callback,
 		render_control_t  control)
 	{
@@ -23,8 +23,9 @@ namespace mandelbrot
 		mpfr_prec_t prec = std::max(ri.prec + 20, ri.prec * 1.15);
 		mpfr_set_default_prec(prec);
 
-		mpfr_t Re, Im, Re2, Im2, T, c_imag, c_real;
+		mpfr_t Re, Im, Re2, Im2, T, Log_Zn, c_imag, c_real;
 		mpfr_inits(Re, Im, Re2, Im2, T, MPFR_NULL);
+		mpfr_init2(Log_Zn, 50);
 
 		// initialize parameter c
 		mpfr_init_set(c_real, ri.x0, MPFR_RNDN);
@@ -84,13 +85,12 @@ namespace mandelbrot
 					break;
 			}
 
-			mpfr_set_d(Im2, im2, MPFR_RNDN);
-			mpfr_set_d(Re2, re2, MPFR_RNDN);
 			mpfr_set_d(T, re2 + im2, MPFR_RNDN);
 
 			return iter;
 		};
 
+		int iter_depth = 0;
 		for(int i = 0; i != ri.height; ++i)
 		{
 			if(control && !control(i)) 
@@ -102,7 +102,16 @@ namespace mandelbrot
 			for(int j = 0; j != ri.width; ++j)
 			{
 				int iter = ri.prec < 50 ? iterate_double() : iterate_mpfr();
-				ri.buffer[ i * ri.width + j ] = color_picker(iter, ri.max_iter, Re2, Im2, T);
+				int index = i * ri.width + j;
+
+				if(ri.buffer) ri.buffer[index] = iter;
+				if(iter <= ri.max_iter && iter > iter_depth)
+					iter_depth = iter;
+
+				// calculate smooth iteration depth
+				mpfr_log2(Log_Zn, T, MPFR_RNDN);
+				double log_zn = 0.5 * mpfr_get_d(Log_Zn, MPFR_RNDN);
+				if(ri.smooth) ri.smooth[index] = iter + 1.0 - log2(log_zn);
 
 				// calculate next parameter c
 				mpfr_add(c_real, c_real, ri.step, MPFR_RNDN);
@@ -114,6 +123,7 @@ namespace mandelbrot
 			if(callback) callback(i);
 		}
 
-		mpfr_clears(Re, Im, Re2, Im2, T, c_imag, c_real, MPFR_NULL);
+		mpfr_clears(Re, Im, Re2, Im2, T, Log_Zn, c_imag, c_real, MPFR_NULL);
+		return iter_depth;
 	}
 }
