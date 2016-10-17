@@ -20,7 +20,7 @@ namespace mandelbrot
 		render_control_t  control)
 	{
 		// set presison for calculation
-		mpfr_prec_t prec = std::max(ri.prec + 20, ri.prec * 1.15);
+		mpfr_prec_t prec = std::max(ri.prec + 5, ri.prec * 1.1);
 		mpfr_set_default_prec(prec);
 
 		mpfr_t Re, Im, Re2, Im2, T, Log_Zn, c_imag, c_real;
@@ -101,7 +101,7 @@ namespace mandelbrot
 
 			for(int j = 0; j != ri.width; ++j)
 			{
-				int iter = ri.prec < 50 ? iterate_double() : iterate_mpfr();
+				int iter = prec < 50 ? iterate_double() : iterate_mpfr();
 				int index = i * ri.width + j;
 
 				if(ri.buffer) ri.buffer[index] = iter;

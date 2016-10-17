@@ -29,14 +29,6 @@ namespace mandelbrot
 		else            return rgb(c, 0, x);
 	}
 
-	inline double smooth_color(int n, mpfr_t T)
-	{
-		using std::log;
-		static const double inv_log2 = 1.0 / log(2.0);
-		double t = mpfr_get_d(T, MPFR_RNDN);
-		return 2 + n - log(log(t)) * inv_log2;
-	}
-
 	uint32_t color_scale_gray(int iter, int max_iter, double smooth)
 	{
 		if(iter > max_iter) return 0;

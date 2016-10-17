@@ -7,7 +7,7 @@
 using namespace mandelbrot;
 
 const int FLUSH_TIMEOUT = 50;
-const int IMG_SIZE = 600, MAX_ITER = 2000;
+const int IMG_SIZE = 600, MAX_ITER = 500;
 GtkWidget *window, *draw_area;
 int THREAD_NUM = 4;
 int T[IMG_SIZE][IMG_SIZE];
@@ -84,8 +84,11 @@ void update_image(mouse_state_t ms)
 			return row % thread_num == id;
 		} );
 
-		if(--working_thread == 0 && cur_iter > ri.max_iter * 0.7)
-			ri.max_iter = cur_iter * 2;
+		if(cur_iter > current_iter_depth)
+			current_iter_depth = cur_iter;
+
+		if(--working_thread == 0 && current_iter_depth > ri.max_iter * 0.7)
+			::ri.max_iter = current_iter_depth * 2;
 	};
 
 	working_thread = THREAD_NUM;
@@ -194,7 +197,7 @@ void init_image()
 	ri.smooth    = (double*)S;
 	ri.max_iter  = MAX_ITER;
 	ri.prec      = 10;
-	mpfr_init_set_d(ri.x0,   -2.0,           MPFR_RNDN);
+	mpfr_init_set_d(ri.x0,   -2.5,           MPFR_RNDN);
 	mpfr_init_set_d(ri.y0,   -2.0,           MPFR_RNDN);
 	mpfr_init_set_d(ri.step, 4.0 / IMG_SIZE, MPFR_RNDN);
 
