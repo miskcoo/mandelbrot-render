@@ -1,6 +1,7 @@
 #include <bits/stdc++.h>
 #include <cairo.h>
 #include <gtk/gtk.h>
+#include <gdk/gdkkeysyms.h>
 #include "mandelbrot.h"
 #include "color.h"
 
@@ -33,7 +34,11 @@ void mpfr_extend_prec(mpfr_t rop, mpfr_t tmp, mpfr_prec_t prec)
 void update_window_title()
 {
 	static char title[1024];
-	sprintf(title, "Mandelbrot Set ( prec = %.5lf, iter = %d )", ri.prec, ri.max_iter);
+	double x0 = mpfr_get_d(ri.x0, MPFR_RNDN);
+	double y0 = mpfr_get_d(ri.y0, MPFR_RNDN);
+	double s0 = mpfr_get_d(ri.step, MPFR_RNDN);
+	sprintf(title, "Mandelbrot Set ( prec = %.5lf, iter = %d ) at (%.6lf, %.6lf)",
+			ri.prec, ri.max_iter, x0 + s0 * IMG_SIZE / 2, y0 + s0 * IMG_SIZE / 2);
 	gtk_window_set_title(GTK_WINDOW(window), title);
 }
 
@@ -77,7 +82,7 @@ void update_image(mouse_state_t ms)
 		int cur_iter = render(ri, 
 		[=](int row) {
 			for(int i = 0; i != ri.width; ++i)
-				G[row][i] = color_fixed_gray(0, ri.max_iter, S[row][i]);
+				G[row][i] = color_fixed_gray(T[row][i], ri.max_iter, S[row][i]);
 			expose_required = true;
 		},
 		[=](int row) -> bool {
@@ -96,6 +101,35 @@ void update_image(mouse_state_t ms)
 		std::thread(calc_procdure, ri, i, THREAD_NUM).detach();
 }
 
+cairo_surface_t *cairo_get_surface()
+{
+	int stride = cairo_format_stride_for_width(
+			CAIRO_FORMAT_RGB24, IMG_SIZE);
+
+	return cairo_image_surface_create_for_data(
+		 (unsigned char*)G, 
+		CAIRO_FORMAT_RGB24, 
+		IMG_SIZE,
+		IMG_SIZE,
+		stride
+	);
+}
+
+gboolean on_key_press(
+	GtkWidget *widget, 
+	GdkEventKey *event, 
+	gpointer data)
+{
+	if(event->keyval == GDK_s && (event->state & GDK_CONTROL_MASK))
+	{
+		cairo_surface_t *surface = cairo_get_surface();
+		cairo_surface_write_to_png(surface, "mandelbrot.png");
+		cairo_surface_destroy(surface);
+	}
+
+	return TRUE;
+}
+
 gboolean expose_event(
 	GtkWidget *widget,
 	GdkEventExpose *event, 
@@ -105,18 +139,7 @@ gboolean expose_event(
 
 	cr = gdk_cairo_create(widget->window);
 
-	int stride = cairo_format_stride_for_width(
-			CAIRO_FORMAT_RGB24, IMG_SIZE);
-
-	cairo_surface_t *surface = 
-		cairo_image_surface_create_for_data(
-			 (unsigned char*)G, 
-			CAIRO_FORMAT_RGB24, 
-			IMG_SIZE,
-			IMG_SIZE,
-			stride
-		);
-
+	cairo_surface_t *surface = cairo_get_surface();
 	cairo_set_source_surface(cr, surface, 0, 0);
 	cairo_paint(cr);
 	cairo_surface_destroy(surface); 
@@ -249,6 +272,8 @@ int main(int argc, char *argv[])
 			G_CALLBACK(mouse_hit_event), NULL);
 	g_signal_connect(G_OBJECT(window), "motion-notify-event", 
 			G_CALLBACK(mouse_motion_event), NULL);
+	g_signal_connect(G_OBJECT(window), "key-press-event", 
+			G_CALLBACK(on_key_press), NULL);
 
 	// set window info
 	gtk_window_set_default_size(GTK_WINDOW(window), IMG_SIZE, IMG_SIZE);

@@ -1,4 +1,5 @@
 #include <cmath>
+#include <algorithm>
 #include "color.h"
 
 namespace mandelbrot
@@ -52,10 +53,14 @@ namespace mandelbrot
 	{
 		if(iter > max_iter) return 0;
 
-		return hsv_to_rgb(
-			360.0 * smooth / max_iter,
-			1.0, 
-			10.0 * smooth / max_iter
-		);
+		const int ruler = 500;
+		if(iter > max_iter) return 0;
+		// ruler * (1, 3, 5, ...)
+		int s = smooth / ruler;
+		int base = s * ruler;
+		double x = (smooth - base) / ruler;
+		if(s & 1) x = 1.0 - x;
+
+		return hsv_to_rgb(120.0 * x, 1.0, 10.0 * x);
 	}
 }
